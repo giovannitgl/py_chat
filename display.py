@@ -1,27 +1,70 @@
-import tkinter as tk
+''' ENTER E BOTAO FUNCIONAM
+from tkinter import *
 
-class Chat(tk.Frame):
+def button_pressed():
+    input_get = input_field.get()
+    label = Label(frame, text=input_get)
+    input_user.set('')
+    label.pack()
+    return "break"
+
+def enter_pressed(event):
+    button_pressed()
+
+
+
+window = Tk()
+window.title('Chat')
+window.geometry("600x500")
+
+input_user = StringVar()
+input_field = Entry(window, text=input_user)
+input_field.pack(side=BOTTOM)
+
+frame = Frame(window, width=300, height=300)
+frame.pack_propagate(False) #
+input_field.bind("<Return>", enter_pressed)
+frame.pack()
+
+b = Button(window, text="Enviar", command=button_pressed)
+b.pack()
+
+window.mainloop()
+
+'''
+
+from tkinter import *
+
+def button_pressed():
+    
+    return "break"
+
+class Chat(Frame):
 	def __init__(self,master=None):
 		super().__init__(master)
-		frame = tk.Frame(self)
+
+		frame = Frame(self)
 		frame.pack()
-		leftframe = tk.Frame(frame)
-		leftframe.pack(side=tk.LEFT)
-		bottomframe = tk.Frame(frame)
-		bottomframe.pack(side=tk.BOTTOM)
-		user_text = tk.Text(leftframe,height=25,width=16)
-		chat_text = tk.Text(frame,height=20,width=100)
-		entry = tk.Text(bottomframe, height=3, width=90)
-		button = tk.Button(bottomframe,text='send',height=3,width=5)
-		user_text.pack(side=tk.LEFT)
-		chat_text.pack(side=tk.TOP)
-		entry.pack(side=tk.LEFT)
-		button.pack(side=tk.RIGHT)
+		leftframe = Frame(frame)
+		leftframe.pack(side=LEFT)
+		bottomframe = Frame(frame)
+		bottomframe.pack(side=BOTTOM)
+
+		user_text = Text(leftframe,height=25,width=16)
+		user_text.configure(state=DISABLED)
+		chat_text = Text(frame,height=20,width=100)
+		chat_text.configure(state=DISABLED)
+		entry = Text(bottomframe, height=3, width=90)
+		button = Button(bottomframe, command=button_pressed,text='send', height=3,width=5)
+
+		user_text.pack(side=LEFT)
+		chat_text.pack(side=TOP)
+		entry.pack(side=LEFT)
+		button.pack(side=RIGHT)
 		self.pack()
 
 if __name__ == '__main__':
-	root = tk.Tk()
+	root = Tk()
 	root.title('Chat')
 	chat = Chat(master=root)
 	chat.mainloop()
-
