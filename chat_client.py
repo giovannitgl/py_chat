@@ -1,64 +1,98 @@
 import socket
 import sys
+import struct
+class chat_client():
+	def __init__(self,addr,port):
+		self.user_list = []
+		self.PORT = port
+		self.ADDR = addr
+		self.SERVER_ID = 65535
+		self.ID = 0
+		self.seq_num = 0
+		self.wait_confirmation = []
 
-def frame_message(msg,msgtype):
-	'''
-	Header (in bytes):
-	[MSG TYPE] [ORIGIN ID] [DESTINY ID] [SEQ_NUM]
-	0        1 2         3 4          5 6       8
-	MSG TYPES:
-	|1 OK	: Msgs are answered with ok	|5 MSG*  : Text being sent to another |
-	|		  when accepted				|			client, appends to header |
-	|2 ERRO	: Same as ok, but			|			2 bytes of its size       |
-	|		  message wasnt accepted	|6 CREQ  : Ask for list of clients    |
-	|3 OI	: Client sends as identifier|		   Server answer with Clist   |
-	|		  when it firsts connect	|7 CLIST : Appends 2 bytes to header, |
-	|4 FLW	: Client sends when			|          containing the number N of |
-	|		  disconnecting				|		   clients, and 2*N more bytes|| 
+	def create_message(self,msg,msgtype,destination):
+		'''
+		Header (in bytes):
+		[MSG TYPE] [ORIGIN ID] [DESTINATION ID] [SEQ_NUM]
+		0        1 2         3 4			  5 6       8
+		MSG TYPES:
+		|1 OK	: Accepted msgs |5 MSG*  : Actual chat msgs   |
+		|		  sends ok      |		   have msg size in   |
+		|2 ERRO	: Refused msgs  |		   header + msg bytes |
+		|		  sends erro	|6 CREQ  : Ask for clients    |
+		|3 OI	: Joining client|		   server sends clist |
+		|		  sends oi      |7 CLIST : number n of clients|
+		|4 FLW	: Leaving client|          in header + n      |
+		|		  sends flw     |		   clients numbers    |
 
-	* MSG has various types
-	TODO: define msg types
-	'''
-	return
+		*  MSG size are 2 bytes, length guaranteed to be < 400 chars
+		** When client gets answered from msg type 3 it receives
+		at destination id his allocated id
+		TODO: define msg types
+		'''
+		frame = bytes()
+		frame += struct.pack('!H',msgtype)
+		frame += struct.pack('!H',self.ID)
+		frame += struct.pack('!H',destination)
+		frame += struct.pack('!H',self.seq_num)
+		self.seq_num += 1
+		if msgtype == 5:
+			msg_len = len(msg)
+			frame += struct.pack('!H',msg_len)
+			frame += msg.encode()	
+		return frame
 
-def send_message(msg):
+	def send_message(self,msg):
 
-	return
+		return
 
-def receive_message():
+	def receive_message(self,sock):
+		msg_type = sock.recv(2)
+		if not msg_type: return
+		origin = sock.recv(2)
+		destination = sock.recv(2)
+		seq_num = sock.recv(2)
+		m = bytes()
+		m += msg_type + origin + destination + seq_num
+		print(m)
+		type_int = struct.unpack('!H',msg_type)[0]
+		seq_int = struct.unpack('!H',seq_num)[0]
+		for i in self.wait_confirmation:
+			#iterates through messages waiting for confirmation
+			#if it received a sequence number equal to one waiting
+			#it confirms if the message is ok
+			if i['seq'] == seq_int:
+				#allocates ID after sucessful "OI"
+				if i['type'] == 3 and type_int == 1:
+					self.ID = struct.unpack('!H',destination)[0]
 
-	return
+		return
 
-def main():
+	def run(self):
+		#constants
+		OK = 1; ERRO = 2; OI = 3; FLW = 4
+		MSG = 5; CREQ = 6; CLIST = 7
+		NO_MSG = ''
+
+		S_ADDR = (sys.argv[1],int(sys.argv[2]))
+
+		sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+		sock.connect((self.ADDR,self.PORT))
+		#id message sent
+		#puts in confirmation queue for allocating id
+		self.wait_confirmation.append({'type':OI,'seq':self.seq_num})
+		msg = self.create_message(NO_MSG,OI,self.SERVER_ID)
+		print(msg)
+		sock.send(msg)
+		self.receive_message(sock)
+		print(self.ID)
+		sock.close()
+
+if __name__ == '__main__':
 	if len(sys.argv) != 3:
 		print('Wrong arg format')
 		sys.exit(0)
-	
-	messages = ['This is the message. ',
-				'It will be sent ',
-				'in parts.']
-	S_ADDR = (sys.argv[1],int(sys.argv[2]))
 
-	# Create a TCP/IP socket
-	socks = [socket.socket(socket.AF_INET, socket.SOCK_STREAM),
-			 socket.socket(socket.AF_INET, socket.SOCK_STREAM)]
-
-	# Connect the socket to the port where the server is listening
-	for s in socks:
-		    s.connect(S_ADDR)
-	
-	for m in messages:
-		for s in socks:
-			print('sent',s.getsockname(),m,file=sys.stderr)
-			s.send(m.encode())
-		for s in socks:
-			data = s.recv(1024)
-			print('received',s.getsockname(),data,file=sys.stderr)
-			if not data:
-				s.close()
-
-
-
-
-if __name__ == '__main__':
-	main()
+	client = chat_client(sys.argv[1],int(sys.argv[2]))
+	client.run()
