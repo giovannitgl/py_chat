@@ -107,13 +107,13 @@ class chat_server:
 						message_queues[s].put(aswr)
 						if s not in outputs:
 							outputs.append(s)
-					else:
-						#interprets lack of message as lost connection
-						if s in outputs:
-							outputs.remove(s)
-						inputs.remove(s)
-						s.close()
-						del message_queues[s]
+					# else:
+					# 	#interprets lack of message as lost connection
+					# 	if s in outputs:
+					# 		outputs.remove(s)
+					# 	inputs.remove(s)
+					# 	s.close()
+					# 	del message_queues[s]
 
 			#Handling outputs
 			#TODO implement msg answering

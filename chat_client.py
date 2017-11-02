@@ -10,6 +10,7 @@ class chat_client():
 		self.ID = 0
 		self.seq_num = 0
 		self.wait_confirmation = []
+		self.sock = self.run()
 
 	def create_message(self,msg,msgtype,destination):
 		'''
@@ -43,9 +44,16 @@ class chat_client():
 			frame += msg.encode()	
 		return frame
 
-	def send_message(self,msg):
-
+	def send_message(self,sock,msg,client):
+		byte_msg = self.create_message(msg,5,client)
 		return
+
+	def request_list(self):
+		msg = self.create_message('',6,self.SERVER_ID)
+		self.wait_confirmation.append(
+				{'type':6,'seq':self.seq_num}
+			)
+		self.sock.send(msg)
 
 	def receive_message(self,sock):
 		msg_type = sock.recv(2)
@@ -58,6 +66,12 @@ class chat_client():
 		print(m)
 		type_int = struct.unpack('!H',msg_type)[0]
 		seq_int = struct.unpack('!H',seq_num)[0]
+		if type_int == 5:
+			n_size = sock.recv(2)
+			n_int = struct.unpack('!H',n_size)[0]
+			received_msg = sock.recv(n_int)
+			msg_str = struct.unpack('!s',received_msg)
+			return msg_str
 		for i in self.wait_confirmation:
 			#iterates through messages waiting for confirmation
 			#if it received a sequence number equal to one waiting
@@ -66,16 +80,33 @@ class chat_client():
 				#allocates ID after sucessful "OI"
 				if i['type'] == 3 and type_int == 1:
 					self.ID = struct.unpack('!H',destination)[0]
-
+				#retrives id list
+				if i['type'] == 6 and type_int == 7:
+					#retrieves size of id list
+					n_size = sock.recv(2)
+					n_int = struct.unpack('!H',n_size)[0]
+					#retrieves list
+					users = sock.recv(n_size)
+					users_tuple = struct.unpack(
+						'!' + str(n_int) + 'H', users
+						)
+					msg_users = str()
+					#creates string with users ids
+					for i in users_tuple:
+						msg_users += i
+						msg_users += ' '
+					return msg_users
 		return
+	def close_conn(self):
+		msg = self.create_message('',4,self.SERVER_ID)
+		self.sock.send(msg)
+		self.sock.close()
 
 	def run(self):
 		#constants
 		OK = 1; ERRO = 2; OI = 3; FLW = 4
 		MSG = 5; CREQ = 6; CLIST = 7
 		NO_MSG = ''
-
-		S_ADDR = (sys.argv[1],int(sys.argv[2]))
 
 		sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 		sock.connect((self.ADDR,self.PORT))
@@ -87,7 +118,8 @@ class chat_client():
 		sock.send(msg)
 		self.receive_message(sock)
 		print(self.ID)
-		sock.close()
+		# sock.close()
+		return sock
 
 if __name__ == '__main__':
 	if len(sys.argv) != 3:
