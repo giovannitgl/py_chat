@@ -10,7 +10,8 @@ class chat_client():
 		self.ID = 0
 		self.seq_num = 0
 		self.wait_confirmation = []
-		self.sock = self.run()
+		self.sock = self.create_socket()
+		self.get_id()
 
 	def create_message(self,msg,msgtype,destination):
 		'''
@@ -55,21 +56,21 @@ class chat_client():
 			)
 		self.sock.send(msg)
 
-	def receive_message(self,sock):
-		msg_type = sock.recv(2)
+	def receive_message(self):
+		msg_type = self.sock.recv(2)
 		if not msg_type: return
-		origin = sock.recv(2)
-		destination = sock.recv(2)
-		seq_num = sock.recv(2)
+		origin = self.sock.recv(2)
+		destination = self.sock.recv(2)
+		seq_num = self.sock.recv(2)
 		m = bytes()
 		m += msg_type + origin + destination + seq_num
 		print(m)
 		type_int = struct.unpack('!H',msg_type)[0]
 		seq_int = struct.unpack('!H',seq_num)[0]
 		if type_int == 5:
-			n_size = sock.recv(2)
+			n_size = self.sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
-			received_msg = sock.recv(n_int)
+			received_msg = self.sock.recv(n_int)
 			msg_str = struct.unpack('!s',received_msg)
 			return msg_str
 		for i in self.wait_confirmation:
@@ -83,10 +84,10 @@ class chat_client():
 				#retrives id list
 				if i['type'] == 6 and type_int == 7:
 					#retrieves size of id list
-					n_size = sock.recv(2)
+					n_size = self.sock.recv(2)
 					n_int = struct.unpack('!H',n_size)[0]
 					#retrieves list
-					users = sock.recv(n_size)
+					users = self.sock.recv(n_size)
 					users_tuple = struct.unpack(
 						'!' + str(n_int) + 'H', users
 						)
@@ -102,24 +103,22 @@ class chat_client():
 		self.sock.send(msg)
 		self.sock.close()
 
-	def run(self):
-		#constants
-		OK = 1; ERRO = 2; OI = 3; FLW = 4
-		MSG = 5; CREQ = 6; CLIST = 7
-		NO_MSG = ''
+	def create_socket(self):
 
 		sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 		sock.connect((self.ADDR,self.PORT))
-		#id message sent
-		#puts in confirmation queue for allocating id
+		return sock
+
+	def get_id(self):
+		OK = 1; ERRO = 2; OI = 3; FLW = 4
+		MSG = 5; CREQ = 6; CLIST = 7
+		NO_MSG = ''
 		self.wait_confirmation.append({'type':OI,'seq':self.seq_num})
 		msg = self.create_message(NO_MSG,OI,self.SERVER_ID)
 		print(msg)
-		sock.send(msg)
-		self.receive_message(sock)
+		self.sock.send(msg)
+		self.receive_message()
 		print(self.ID)
-		# sock.close()
-		return sock
 
 if __name__ == '__main__':
 	if len(sys.argv) != 3:
@@ -127,4 +126,3 @@ if __name__ == '__main__':
 		sys.exit(0)
 
 	client = chat_client(sys.argv[1],int(sys.argv[2]))
-	client.run()

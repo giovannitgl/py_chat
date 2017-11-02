@@ -12,6 +12,8 @@ class chat_server:
 		self.PORT = port
 		self.next_id = 1
 		self.SERVER_ID = 65535
+		#socket - id map
+		self.mapping = []
 
 	def allocate_id(self):
 		next_id = self.next_id
@@ -62,16 +64,32 @@ class chat_server:
 		if not msg_type: return
 		origin = sock.recv(2)
 		destination = sock.recv(2)
+		dest_int = struct.unpack('!H',destination)[0]
 		seq_num = sock.recv(2)
-		print('num',seq_num)
 		seq_int = struct.unpack('!H',seq_num)
 		seq_int = seq_int[0]
 		msg_int_type = struct.unpack('!H',msg_type)[0]
+		#treats "OI" messages
 		if msg_int_type == 3:
-			return self.create_message('',1,self.allocate_id(),seq_int)
+			new_id = self.allocate_id()
+			for i in self.mapping:
+				if sock is i['sock']:
+					i['id'] = new_id
+			return dest_int,self.create_message('',1,new_id,seq_int)
+		elif msg_int_type == 5:
+			n_size = sock.recv(2)
+			n_int = struct.unpack('!H',n_size)[0]
+			received_msg = sock.recv(n_int)
+			#forwarding of messages
+			if dest_int != 0:
+				return dest_int,self.create_message(
+					received_msg,5,dest_int,seq_int
+					)
 		return
 
 	def run(self):
+		# TODO change input output message queue to object variables
+		# TODO change receive msg to be able to send answer msgs
 		S_ADDR = ('localhost',PORT)
 		MAX_CON = 65534
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)	
@@ -85,6 +103,8 @@ class chat_server:
 		outputs = []
 		message_queues = {}
 
+		self.mapping.append({'sock':server,'id':self.SERVER_ID})
+
 		while inputs:
 			readable, writable, exceptional =  select.select(inputs,outputs,inputs)
 			#Handling inputs	
@@ -94,7 +114,7 @@ class chat_server:
 					connection, addr = s.accept()
 					connection.setblocking(0)
 					inputs.append(connection)
-
+					self.mapping.append({'sock':connection,'id':0})
 					#creates queue for message
 					message_queues[connection] = queue.Queue()
 				else:
