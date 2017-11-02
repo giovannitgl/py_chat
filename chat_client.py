@@ -12,6 +12,15 @@ class chat_client():
 		self.wait_confirmation = []
 		self.sock = self.create_socket()
 		self.get_id()
+		self.mockup_send()
+		self.receive_message()
+		while(True):
+			continue
+
+	def mockup_send(self):
+		str_msg = input()
+		msg = self.create_message(str_msg,5,2)
+		self.sock.send(msg)
 
 	def create_message(self,msg,msgtype,destination):
 		'''
@@ -46,6 +55,7 @@ class chat_client():
 		return frame
 
 	def send_message(self,sock,msg,client):
+		self.wait_confirmation.append({'type':5,'seq':self.seq_num})
 		byte_msg = self.create_message(msg,5,client)
 		return
 
@@ -71,7 +81,7 @@ class chat_client():
 			n_size = self.sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
 			received_msg = self.sock.recv(n_int)
-			msg_str = struct.unpack('!s',received_msg)
+			msg_str = received_msg.decode()
 			return msg_str
 		for i in self.wait_confirmation:
 			#iterates through messages waiting for confirmation

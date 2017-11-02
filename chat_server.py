@@ -53,6 +53,7 @@ class chat_server:
 			frame += msg.encode()	
 		if msgtype == 7:
 			frame += struct.pack('!H',self.user_count)
+		print(frame,'frame')
 		return frame
 
 	def send_message(self,msg):
@@ -63,6 +64,7 @@ class chat_server:
 		msg_type = sock.recv(2)
 		if not msg_type: return
 		origin = sock.recv(2)
+		orig_int = struct.unpack('!H',origin)[0]
 		destination = sock.recv(2)
 		dest_int = struct.unpack('!H',destination)[0]
 		seq_num = sock.recv(2)
@@ -75,16 +77,34 @@ class chat_server:
 			for i in self.mapping:
 				if sock is i['sock']:
 					i['id'] = new_id
-			return dest_int,self.create_message('',1,new_id,seq_int)
+			self.message_queues[sock].put(self.create_message(
+					'',1,new_id,seq_int
+				))
+			if sock not in self.outputs:
+				self.outputs.append(sock)
+			return
 		elif msg_int_type == 5:
 			n_size = sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
 			received_msg = sock.recv(n_int)
+			str_msg = received_msg.decode()
+			print(str_msg,'str')
+			print(received_msg,'bytes')
 			#forwarding of messages
 			if dest_int != 0:
-				return dest_int,self.create_message(
-					received_msg,5,dest_int,seq_int
-					)
+				for i in self.mapping:
+					if i['id'] == dest_int:
+						dest_sock = i['sock']
+				self.message_queues[dest_sock].put(self.create_message(
+					str_msg,5,dest_int,seq_int
+					))
+				if dest_sock not in self.outputs:
+					self.outputs.append(dest_sock)
+				self.message_queues[sock].put(self.create_message(
+					'',1,orig_int,seq_int))
+				if sock not in self.outputs:
+					self.outputs.append(sock)
+				return 
 		return
 
 	def run(self):
@@ -99,34 +119,32 @@ class chat_server:
 		server.listen(MAX_CON)	
 
 		#messages lists
-		inputs = [ server ]
-		outputs = []
-		message_queues = {}
+		self.inputs = [ server ]
+		self.outputs = []
+		self.message_queues = {}
 
 		self.mapping.append({'sock':server,'id':self.SERVER_ID})
 
-		while inputs:
-			readable, writable, exceptional =  select.select(inputs,outputs,inputs)
+		while self.inputs:
+			readable, writable, exceptional =  select.select(self.inputs,self.outputs,self.inputs)
 			#Handling inputs	
 			for s in readable:
 				if s is server:
 					#Accepts new connections
 					connection, addr = s.accept()
 					connection.setblocking(0)
-					inputs.append(connection)
+					self.inputs.append(connection)
 					self.mapping.append({'sock':connection,'id':0})
 					#creates queue for message
-					message_queues[connection] = queue.Queue()
+					self.message_queues[connection] = queue.Queue()
 				else:
 					#Receives data
-					#TODO receive actual framed messages 
-					# data = s.recv(1024)
 					aswr = self.receive_message(s)
 					if aswr:
 						print(aswr)
-						message_queues[s].put(aswr)
-						if s not in outputs:
-							outputs.append(s)
+						# message_queues[s].put(aswr)
+						# if s not in outputs:
+						# 	self.outputs.append(s)
 					# else:
 					# 	#interprets lack of message as lost connection
 					# 	if s in outputs:
@@ -139,18 +157,18 @@ class chat_server:
 			#TODO implement msg answering
 			for s in writable:		
 				try:
-					next_msg = message_queues[s].get_nowait()
+					next_msg = self.message_queues[s].get_nowait()
 				except queue.Empty:
-					outputs.remove(s)
+					self.outputs.remove(s)
 				else:
 					s.send(next_msg)
 						
 			for s in exceptional:
-				inputs.remove(s)
+				self.inputs.remove(s)
 				if s in outputs:
-					outputs.remove(s)
+					self.outputs.remove(s)
 				s.close()
-				del message_queues[s]
+				del self.message_queues[s]
 
 if __name__ == '__main__':
 	if len(sys.argv) != 2:
