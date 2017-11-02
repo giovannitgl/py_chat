@@ -36,8 +36,12 @@ window.mainloop()
 from tkinter import *
 
 def button_pressed():
-    
+    print ("Botão")
     return "break"
+
+def enter_pressed(event):
+    print ("Enter")
+    return
 
 class Chat(Frame):
 	def __init__(self,master=None):
@@ -50,16 +54,19 @@ class Chat(Frame):
 		bottomframe = Frame(frame)
 		bottomframe.pack(side=BOTTOM)
 
+		input_user = StringVar()
+		input_field = Entry(bottomframe, text=input_user)
+		input_field.bind("<Return>", enter_pressed)
+
 		user_text = Text(leftframe,height=25,width=16)
 		user_text.configure(state=DISABLED)
 		chat_text = Text(frame,height=20,width=100)
 		chat_text.configure(state=DISABLED)
-		entry = Text(bottomframe, height=3, width=90)
 		button = Button(bottomframe, command=button_pressed,text='send', height=3,width=5)
 
 		user_text.pack(side=LEFT)
 		chat_text.pack(side=TOP)
-		entry.pack(side=LEFT)
+		input_field.pack(side=LEFT)
 		button.pack(side=RIGHT)
 		self.pack()
 
