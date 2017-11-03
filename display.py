@@ -4,34 +4,38 @@ class Chat(Frame):
 	def __init__(self,master=None):
 		super().__init__(master)
 
-		frame = Frame(self)
-		frame.pack()
-		leftframe = Frame(frame)
+		self.frame = Frame(self, height=500)
+		self.frame.pack()
+		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT)
-		bottomframe = Frame(frame)
+		bottomframe = Frame(self.frame)
 		bottomframe.pack(side=BOTTOM)
 
 		self.input_user = StringVar()
 		self.input_field = Entry(bottomframe, text=self.input_user, width=80)
 		self.input_field.bind("<Return>", self.enter_pressed)
 
-		user_text = Text(leftframe,height=25,width=16)
+		user_text = Text(leftframe,height=200,width=16)
 		user_text.configure(state=DISABLED)
-		self.chat_text = Text(frame,height=23,width=100)
-		self.chat_text.configure(state=DISABLED)
 		button = Button(bottomframe, command=self.button_pressed,text='send', height=1,width=5)
 
-		user_text.pack(side=LEFT)
-		self.chat_text.pack(side=TOP)
+
+		seachContact = Button(leftframe, text='Send\nMessage\nto...', height=3,width=5)
+		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
+
+		seachContact.pack()
+		broadcast.pack()
 		self.input_field.pack(side=LEFT)
 		button.pack(side=RIGHT)
 		self.pack()
 
 	def button_pressed(self):
+		aux = "Me -> "
 		input_get = self.input_field.get()
 		if input_get != "":
+			input_get = aux + input_get
 			print (input_get)	
-			label = Label(self.chat_text, text=input_get)
+			label = Label(self.frame, text=input_get, fg="green", bg="white")
 			self.input_user.set('')
 			label.pack()
 		return "break"
@@ -44,5 +48,6 @@ class Chat(Frame):
 if __name__ == '__main__':
 	root = Tk()
 	root.title('Chat')
+	root.maxsize(width=850, height=600)
 	chat = Chat(master=root)
 	chat.mainloop()
