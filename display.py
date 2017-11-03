@@ -29,8 +29,8 @@ class Chat(Frame):
 
 	def button_pressed(self):
 		input_get = self.input_field.get()
-		print (input_get)	
-		if input_get != '\\n':
+		if input_get != "":
+			print (input_get)	
 			label = Label(self.chat_text, text=input_get)
 			self.input_user.set('')
 			label.pack()
