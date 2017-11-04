@@ -3,8 +3,7 @@ import sys
 import struct
 import select
 
-OI = 3
-NO_MSG = ''
+
 
 class chat_client():
 	def __init__(self,addr,port,verbose=False):
@@ -38,7 +37,6 @@ class chat_client():
 		*  MSG size are 2 bytes, length guaranteed to be < 400 chars
 		** When client gets answered from msg type 3 it receives
 		at destination id his allocated id
-		TODO: define msg types
 		'''
 		frame = bytes()
 		frame += struct.pack('!H',msgtype)
@@ -92,7 +90,9 @@ class chat_client():
 			if self.verbose:
 				print('Received',packet,'from socket')
 			return msg_str
-		for i in self.wait_confirmation:
+		if self.verbose:
+			print('Received',packet,'from socket')
+		for i in self.wait_confirmation[:]:
 			#iterates through messages waiting for confirmation
 			#if it received a sequence number equal to one waiting
 			#it confirms if the message is ok
@@ -100,12 +100,16 @@ class chat_client():
 				#allocates ID after sucessful "OI"
 				if type_int == 1:
 					if i['type'] == 5:
-						self.wait_confirmation.pop()
+						self.wait_confirmation.remove(i)
 					if i['type'] == 3:
 						self.ID = struct.unpack('!H',destination)[0]
 						self.wait_confirmation.remove(i)
+				elif type_int == 2:
+					if i['type'] == 5:
+						self.wait_confirmation.remove(i)
+						print('Error')
 				#retrives id list
-				if i['type'] == 6 and type_int == 7:
+				elif i['type'] == 6 and type_int == 7:
 					#retrieves size of id list
 					n_size = self.sock.recv(2)
 					n_int = struct.unpack('!H',n_size)[0]
@@ -122,22 +126,25 @@ class chat_client():
 						msg_users += ' '
 					if self.verbose:
 						print('Received',packet,'from socket')
-					self.wait_confirmation.pop()
+					self.wait_confirmation.remove(i)
 					return msg_users
+				elif i['type'] == 4 and type_int == 1:
+					self.wait_confirmation.remove(i)
+					self.sock.close()
+					sys.exit()
 		return
-	def close_conn(self):
+	def close_connection(self):
+		self.wait_confirmation.append({'type':4,'seq':self.seq_num})
 		msg = self.create_message('',4,self.SERVER_ID)
 		self.sock.send(msg)
-		self.sock.close()
 
 	def create_socket(self):
-
 		sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 		sock.connect((self.ADDR,self.PORT))
 		return sock
 
 	def get_id(self):
-		OK = 1;
+		OI = 3; NO_MSG = ''
 		self.wait_confirmation.append({'type':OI,'seq':self.seq_num})
 		msg = self.create_message(NO_MSG,OI,self.SERVER_ID)
 		self.sock.send(msg)
@@ -147,23 +154,29 @@ class chat_client():
 	def run(self):
 		inputs = [self.sock,sys.stdin]
 		while(True):
-			inputready,outputready,exceptready =  select.select(inputs,[],[])
-			for s in inputready:
-				if s == self.sock:
-					msg = self.receive_message()
-					if msg : print(msg)
-				elif s == sys.stdin:
-					msg = sys.stdin.readline()
-					if msg:
-						# print('msg',msg,len(msg),msg[0]=='*')
-						if self.verbose:
-							print('Received \"%s\" from stdin' % msg)
-						if msg[0].isdigit():
-							dest = int(msg[0])
-							self.send_message(msg[1:],dest)
-						elif msg[0] == '*' and len(msg) == 2:
-							self.request_list()
-
+			try:
+				inputready,outputready,exceptready =  select.select(inputs,[],[])
+				for s in inputready:
+					if s == self.sock:
+						msg = self.receive_message()
+						if msg : print(msg)
+					elif s == sys.stdin:
+						msg = sys.stdin.readline()
+						if msg:
+							# print('msg',msg,len(msg),msg[0]=='*')
+							if self.verbose:
+								print('Received \"%s\" from stdin' % msg)
+							if msg[0].isdigit():
+								dest = int(msg[0])
+								self.send_message(msg[1:],dest)
+							elif msg[0] == '*' and len(msg) == 2:
+								self.request_list()
+							elif msg[0] == '-' and len(msg) == 2:
+								self.close_connection()
+			except:
+				self.close_connection()
+				self.sock.close()
+				sys.exit(1)
 if __name__ == '__main__':
 	argc = len(sys.argv)
 	if argc == 4:

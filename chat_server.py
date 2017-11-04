@@ -6,7 +6,6 @@ import queue
 
 class chat_server:
 	def __init__(self,port,verbose=False):
-		self.user_list = []          #contain user ids
 		self.waiting_for_accept = [] #contain user ids waiting for ok
 		self.user_count = 0
 		self.PORT = port
@@ -16,14 +15,18 @@ class chat_server:
 		#socket - id map
 		# {'sock':<socket object>, 'id':int}
 		self.mapping = []
+		self.freed_ids = []
 
 	def allocate_id(self):
-		next_id = self.next_id
-		self.next_id += 1
-		self.waiting_for_accept.append(next_id)
-		if self.next_id > self.SERVER_ID:
-			next_id = -1
-		return next_id
+		if not self.freed_ids:
+			next_id = self.next_id
+			self.next_id += 1
+			self.waiting_for_accept.append(next_id)
+			if self.next_id > self.SERVER_ID:
+				next_id = -1
+			return next_id
+		else:
+			return self.freed_ids.pop()
 	def create_message(self,msg,msgtype,destination,seq):
 		'''
 		Header (in bytes):
@@ -42,7 +45,6 @@ class chat_server:
 		*  MSG size are 2 bytes, length guaranteed to be < 400 chars
 		** When client gets answered from msg type 3 it receives
 		at destination id his allocated id
-		TODO: define msg types
 		'''
 		frame = bytes()
 		frame += struct.pack('!H',msgtype)
@@ -60,12 +62,7 @@ class chat_server:
 				id_int = i['id']
 				if id_int != self.SERVER_ID:
 					frame += struct.pack('!H',id_int)
-		# print(frame,'frame')
 		return frame
-
-	def send_message(self,msg):
-
-		return
 
 	def receive_message(self,sock):
 		#retrieve socket id for verbose printing
@@ -88,6 +85,7 @@ class chat_server:
 		packet += msg_type + origin + destination + seq_num
 		#treats "OI" messages
 		if msg_int_type == 3:
+			print('3')
 			new_id = self.allocate_id()
 			for i in self.mapping:
 				if sock is i['sock']:
@@ -102,6 +100,7 @@ class chat_server:
 			return
 		#treats "MSG" messages
 		elif msg_int_type == 5:
+			print('5')
 			n_size = sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
 			received_msg = sock.recv(n_int)
@@ -109,22 +108,31 @@ class chat_server:
 			packet += n_size + received_msg
 			#forwarding of messages
 			if dest_int != 0:
+				dest_sock = None
 				for i in self.mapping:
 					if i['id'] == dest_int:
 						dest_sock = i['sock']
-				# str_frame = self.create_message(str_msg,5,dest_int,seq_int)
-				self.message_queues[dest_sock].put(packet)
-				if dest_sock not in self.outputs:
-					self.outputs.append(dest_sock)
-				ok_frame = self.create_message('',1,orig_int,seq_int)
-				self.message_queues[sock].put(ok_frame)
-				if sock not in self.outputs:
-					self.outputs.append(sock)
-				if self.verbose:
-					print('Received msg',packet,'from id',sock_id)
-				return 
+				if dest_sock:
+					self.message_queues[dest_sock].put(packet)
+					if dest_sock not in self.outputs:
+						self.outputs.append(dest_sock)
+					ok_frame = self.create_message('',1,orig_int,seq_int)
+					self.message_queues[sock].put(ok_frame)
+					if sock not in self.outputs:
+						self.outputs.append(sock)
+					if self.verbose:
+						print('Received msg',packet,'from id',sock_id)
+					return 
+				else:
+					error_frame = self.create_message('',2,orig_int,seq_int)
+					self.message_queues[sock].put(error_frame)
+					if sock not in self.outputs:
+						self.outputs.append(sock)
+					if self.verbose:
+						print('Received msg',packet,'from id', sock_id)
+					return
 			#Broadcast
-			if dest_int == 0:
+			else:
 				for dest_int in range(1, self.user_count+1):
 					if int(orig_int) != dest_int:
 						for i in self.mapping:
@@ -145,11 +153,24 @@ class chat_server:
 
 		#treats "CREQ" messages
 		elif msg_int_type == 6:
+			print('6')
 			list_frame = self.create_message('',7,orig_int,seq_int)
 			self.message_queues[sock].put(list_frame)
 			if sock not in self.outputs:
 				self.outputs.append(sock)
-		print('Received msg',packet,'from id',sock_id)
+		#treats "FLW" messages
+		elif msg_int_type == 4:
+			print('4')
+			self.freed_ids.append(sock_id)
+			for i in self.mapping[:]:
+				if i['id'] == sock_id:
+					self.mapping.remove(i)
+			ok_frame = self.create_message('',1,orig_int,seq_int)
+			self.message_queues[sock].put(ok_frame)
+			if sock not in self.outputs:
+				self.outputs.append(sock)
+		if self.verbose:
+			print('Received msg',packet,'from id',sock_id)
 		return
 
 	def run(self):
@@ -185,21 +206,7 @@ class chat_server:
 				else:
 					#Receives data
 					aswr = self.receive_message(s)
-					# if aswr:
-					# 	print(aswr)
-						# message_queues[s].put(aswr)
-						# if s not in outputs:
-						# 	self.outputs.append(s)
-					# else:
-					# 	#interprets lack of message as lost connection
-					# 	if s in outputs:
-					# 		outputs.remove(s)
-					# 	inputs.remove(s)
-					# 	s.close()
-					# 	del message_queues[s]
-
 			#Handling outputs
-			#TODO implement msg answering
 			for s in writable:		
 				try:
 					next_msg = self.message_queues[s].get_nowait()
