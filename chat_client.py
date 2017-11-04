@@ -3,6 +3,9 @@ import sys
 import struct
 import select
 
+OI = 3
+NO_MSG = ''
+
 class chat_client():
 	def __init__(self,addr,port,verbose=False):
 		self.user_list = []

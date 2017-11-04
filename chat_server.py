@@ -123,6 +123,28 @@ class chat_server:
 				if self.verbose:
 					print('Received msg',packet,'from id',sock_id)
 				return 
+			#Broadcast
+			if dest_int == 0:
+				for dest_int in range(1, self.user_count+1):
+					if int(orig_int) != dest_int:
+						try:
+							for i in self.mapping:
+								if i['id'] == dest_int:
+									dest_sock = i['sock']
+							# str_frame = self.create_message(str_msg,5,dest_int,seq_int)
+							self.message_queues[dest_sock].put(packet)
+							if dest_sock not in self.outputs:
+								self.outputs.append(dest_sock)
+							ok_frame = self.create_message('',1,orig_int,seq_int)
+							self.message_queues[sock].put(ok_frame)
+							if sock not in self.outputs:
+								self.outputs.append(sock)
+							if self.verbose:
+								print('Received msg',packet,'from id',sock_id)
+						except:
+							pass
+				return
+
 		#treats "CREQ" messages
 		elif msg_int_type == 6:
 			list_frame = self.create_message('',7,orig_int,seq_int)

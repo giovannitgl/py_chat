@@ -23,17 +23,17 @@ class Chat(Frame):
 		self.input_field = Entry(bottomframe, text=self.input_user, width=65)
 		self.input_field.bind("<Return>", self.enter_pressed)
 		button = Button(bottomframe, command=self.button_pressed,text='Send', height=1,width=5)
+		button.pack(side=RIGHT)
+		self.input_field.pack(side=LEFT)
 
 		# Botões para o usuário
 		leftframe = Frame(self.frame)
-		leftframe.pack(side=LEFT)
+		leftframe.pack(side=LEFT, fill=Y)
 		seachContact = Button(leftframe, text='Send\nMessage\nto...', height=3,width=5)
 		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
+		seachContact.pack()
+		broadcast.pack()
 
-		#seachContact.pack()
-		#broadcast.pack()
-		self.input_field.pack(side=LEFT)
-		button.pack(side=RIGHT)
 		self.pack()
 
 	def button_pressed(self):
