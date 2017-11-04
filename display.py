@@ -31,8 +31,8 @@ class Chat(Frame):
 		leftframe.pack(side=LEFT, fill=Y)
 		seachContact = Button(leftframe, text='Send\nMessage\nto...', height=3,width=5)
 		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
-		seachContact.pack()
-		broadcast.pack()
+		#seachContact.pack()
+		#broadcast.pack()
 
 		self.pack()
 
