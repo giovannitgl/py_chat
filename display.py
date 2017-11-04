@@ -7,6 +7,14 @@ class Chat(Frame):
 		self.frame = Frame(self)
 		self.frame.pack()
 
+		# Botões para o usuário
+		leftframe = Frame(self.frame)
+		leftframe.pack(side=LEFT, fill=Y)
+		seachContact = Button(leftframe, text='Send\nMessage\nto...', height=3,width=5)
+		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
+		seachContact.pack()
+		broadcast.pack()
+
 		# Parte aonde armazana a conversa + scroll
 		self.topframe = Frame(self.frame)
 		self.topframe.pack(expand=True, fill=Y)
@@ -25,14 +33,6 @@ class Chat(Frame):
 		button = Button(bottomframe, command=self.button_pressed,text='Send', height=1,width=5)
 		button.pack(side=RIGHT)
 		self.input_field.pack(side=LEFT)
-
-		# Botões para o usuário
-		leftframe = Frame(self.frame)
-		leftframe.pack(side=LEFT, fill=Y)
-		seachContact = Button(leftframe, text='Send\nMessage\nto...', height=3,width=5)
-		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
-		#seachContact.pack()
-		#broadcast.pack()
 
 		self.pack()
 
