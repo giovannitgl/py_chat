@@ -10,10 +10,10 @@ class Chat(Frame):
 		self.topframe.pack(expand=True, fill=Y)
 		self.textarea = Text(self.topframe, state=DISABLED)
 
-		self.vsb = Scrollbar(self.topframe, takefocus=0, command=self.textarea.yview)
-		self.vsb.pack(side=RIGHT, fill=Y)
+		self.scroll = Scrollbar(self.topframe, takefocus=0, command=self.textarea.yview)
+		self.scroll.pack(side=RIGHT, fill=Y)
 		self.textarea.pack(side=RIGHT, expand=YES, fill=BOTH)
-		self.textarea["yscrollcommand"]=self.vsb.set
+		self.textarea["yscrollcommand"]=self.scroll.set
 
 		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT)
@@ -24,8 +24,6 @@ class Chat(Frame):
 		self.input_field = Entry(bottomframe, text=self.input_user, width=65)
 		self.input_field.bind("<Return>", self.enter_pressed)
 
-		user_text = Text(leftframe,width=16)
-		user_text.configure(state=DISABLED)
 		button = Button(bottomframe, command=self.button_pressed,text='send', height=1,width=5)
 
 
@@ -44,7 +42,7 @@ class Chat(Frame):
 		if input_get != "":
 			input_get = aux + input_get + "\n"
 
-			relative_position_of_scrollbar = self.vsb.get()[1]
+			relative_position_of_scrollbar = self.scroll.get()[1]
 			self.textarea.config(state=NORMAL)
 			self.textarea.insert(END, input_get)
 			self.textarea.config(state=DISABLED)
