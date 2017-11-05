@@ -41,9 +41,15 @@ class Chat(Frame):
 		# Botões para o usuário
 		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT, fill=Y)
-		seachContact = Button(leftframe, text='Send\nMessage\nto...', height=3,width=5)
-		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
+		seachContact = Label(leftframe, text='Send\nMessage\nto:')
+		go = Button(leftframe,command=self.goButton, text='Go', height=1,width=1)
+		self.input_destiny = StringVar()
+		self.user_field = Entry(leftframe, text=self.input_destiny, width=3)
+		self.user_field.bind("<Return>", self.enter_pressedGO)
+		broadcast = Button(leftframe,command=self.broadcastButton, text='Broadcast', height=1,width=5)
 		seachContact.pack()
+		self.user_field.pack()
+		go.pack()
 		broadcast.pack()
 
 		# Parte aonde armazana a conversa + scroll
@@ -66,6 +72,23 @@ class Chat(Frame):
 		self.input_field.pack(side=LEFT)
 
 		self.pack()
+
+	def goButton(self):
+		number = self.user_field.get()
+		_input = self.input_field.get()
+		if _input == "":
+			_input = "/"
+		if _input[0] == '/':
+			lenght = len(_input.split(" ")[0]) + 1
+			_input = _input[lenght:]
+		self.input_user.set("/msg" + number + " " + _input)
+
+	def broadcastButton(self):
+		input_get = self.input_field.get()
+		if input_get[0] == '/':
+			lenght = len(input_get.split(" ")[0]) + 1
+			self.input_user.set(input_get[lenght:])
+
 	def check_new_message(self):
 		global msg_queue
 		while not msg_queue.empty():
@@ -76,10 +99,14 @@ class Chat(Frame):
 	def button_pressed(self):
 		input_get = self.input_field.get()
 		input_get += '\n'
-		self.updateChat('Me -> ' + input_get[1:])
+		if input_get[0] == '/':
+			self.updateChat('Me -> ' + input_get[1:])
 		self.w.write(input_get)
 		self.w.flush()
 		# self.client.send_message(input_get[1:],dest)
+
+	def enter_pressedGO(self,event):
+		self.goButton()
 
 	def enter_pressed(self,event):
 		self.button_pressed()
