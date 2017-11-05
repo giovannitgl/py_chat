@@ -1,12 +1,23 @@
 from tkinter import *
+import io
+import chat_client
+import queue
+import threading
+msg_queue = queue.Queue()
 
 class Chat(Frame):
-	def __init__(self,master=None):
+	def __init__(self,addr,master=None,verbose=False):
 		super().__init__(master)
-
+		ip = addr[0]
+		port = addr[1]
 		self.frame = Frame(self)
 		self.frame.pack()
-
+		self.client = chat_client.Client(ip,port,verbose)
+		global msg_queue
+		print('oie')
+		t = threading.Thread(target=self.client.listen,args=(msg_queue,))
+		t.start()
+		print('Thread n rolou')
 		# Botões para o usuário
 		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT, fill=Y)
@@ -14,6 +25,7 @@ class Chat(Frame):
 		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
 		seachContact.pack()
 		broadcast.pack()
+		print('ahm')
 
 		# Parte aonde armazana a conversa + scroll
 		self.topframe = Frame(self.frame)
@@ -35,6 +47,16 @@ class Chat(Frame):
 		self.input_field.pack(side=LEFT)
 
 		self.pack()
+		print('aqui')
+	def check_new_message(self):
+		global msg_queue
+		while not msg_queue.empty():
+			msg = msg_queue.get_nowait()
+			print('peguei',msg)
+			user = msg[0] + ' -> '
+			self.updateChat(user,msg[1:])
+		chat.after(300,chat.check_new_message)
+
 
 	def button_pressed(self):
 		input_get = self.input_field.get()
@@ -64,5 +86,18 @@ class Chat(Frame):
 if __name__ == '__main__':
 	root = Tk()
 	root.title('Chat')
-	chat = Chat(master=root)
+	argc = len(sys.argv)
+	addr = (sys.argv[1],int(sys.argv[2]))
+	if argc == 4:
+		if sys.argv[3] == '-v':
+			chat = Chat(addr,root,True)
+		else:
+			print('Wrong arg')
+			sys.exit(0)
+	elif argc == 3:
+		client = Chat(addr,root)
+	else:
+		print('Wrong arg format')
+		sys.exit(0)
+	chat.after(300,chat.check_new_message)
 	chat.mainloop()

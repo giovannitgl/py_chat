@@ -4,8 +4,7 @@ import struct
 import select
 
 
-
-class chat_client():
+class Client():
 	def __init__(self,addr,port,verbose=False):
 		self.user_list = []
 		self.PORT = port
@@ -19,7 +18,6 @@ class chat_client():
 		self.wait_confirmation = []
 		self.sock = self.create_socket()
 		self.get_id()
-		self.run()
 
 	def create_message(self,msg,msgtype,destination,seq=None):
 		'''
@@ -161,6 +159,13 @@ class chat_client():
 		self.receive_message()
 		print("Your ID: " + str(self.ID))
 		
+	def listen(self,msg_list):
+		while(True):
+			msg = self.receive_message()
+			if msg:
+				msg_list.put(msg)
+				print('put on msg_list',msg)
+
 	def run(self):
 		inputs = [self.sock,sys.stdin]
 		while(True):
@@ -192,16 +197,15 @@ if __name__ == '__main__':
 	argc = len(sys.argv)
 	if argc == 4:
 		if sys.argv[3] == '-v':
-			client = chat_client(sys.argv[1],int(sys.argv[2]),verbose=True)
+			client = Client(sys.argv[1],int(sys.argv[2]),verbose=True)
 		else:
 			print('Wrong arg')
 			sys.exit(0)
 	elif argc == 3:
-		client = chat_client(sys.argv[1],int(sys.argv[2]))
+		client = Client(sys.argv[1],int(sys.argv[2]))
 	else:
 		print('Wrong arg format')
 		sys.exit(0)
 		
 	# if len(sys.argv) != 3 or len(sys.argv) != 4:
-
-	client = chat_client(sys.argv[1],int(sys.argv[2]))
+	client.run()
