@@ -136,7 +136,7 @@ class Client():
 						'!' + str(n_int) + 'H', users
 						)
 					msg_users = str()
-					msg_user += "Online users: "
+					msg_users += "Online users: "
 					#creates string with users ids
 					for j in users_tuple:
 						msg_users += str(j)
