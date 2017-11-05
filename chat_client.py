@@ -2,10 +2,11 @@ import socket
 import sys
 import struct
 import select
-
+import queue
+import os
 
 class Client():
-	def __init__(self,addr,port,verbose=False):
+	def __init__(self,addr,port,verbose=False,gui=False,read_file=None,write_file=None):
 		self.user_list = []
 		self.PORT = port
 		self.ADDR = addr
@@ -13,6 +14,9 @@ class Client():
 		self.ID = 0
 		self.verbose=verbose
 		self.seq_num = 0
+		self.read_file=read_file
+		self.write_file=write_file
+		self.gui=gui
 		#list waiting for msg confirmations
 		#{'type':int with message type,'seq':sequence number of msg}
 		self.wait_confirmation = []
@@ -171,32 +175,62 @@ class Client():
 				print('put on msg_list',msg)
 
 	def run(self):
-		inputs = [self.sock,sys.stdin]
-		while(True):
+		input_stream = sys.stdin.fileno()
+		output_stream = sys.stdout.fileno()
+		message_queue = queue.Queue()
+		if self.gui: 
+			input_stream = self.read_file
+			output_stream = self.write_file
+		r = os.fdopen(input_stream,'r')
+		w = os.fdopen(output_stream,'w')
+		# print(r.fileno(),w.fileno())
+		inputs = [self.sock,input_stream]
+		# print(w)
+		outputs = []
+		print(r.fileno,w.fileno)
+		while inputs:
 			try:
-				inputready,outputready,exceptready =  select.select(inputs,[],[])
-				for s in inputready:
+				readable,writable,exceptional = select.select(inputs,outputs,[])
+				for s in readable:
 					if s == self.sock:
 						msg = self.receive_message()
-						if msg : print(msg)
-					elif s == sys.stdin:
-						msg = sys.stdin.readline()
+						if msg : 
+							message_queue.put(msg)
+							if output_stream not in outputs:
+								outputs.append(output_stream)
+					elif s == input_stream:
+						msg = r.readline()
 						if msg:
-							msg = msg[:-1]
+							msg = msg
 							# print('msg',msg,len(msg),msg[0]=='*')
 							if self.verbose:
-								print('Received \"%s\" from stdin' % msg)
+								print('Received \"%s\" from input' % msg)
 							if msg[0].isdigit():
 								dest = int(msg[0])
 								self.send_message(msg[1:],dest)
 							elif msg[0] == '*' and len(msg) == 2:
 								self.request_list()
 							elif msg[0] == '-' and len(msg) == 2:
+								r.close()
+								w.close()
 								self.close_connection()
+				for s in writable:
+					try:
+						next_msg = message_queue.get_nowait()
+					except queue.Empty:
+						outputs.remove(s)
+					else:
+						if self.verbose:
+							print('Sending \"%s\" to output' % next_msg)
+						w.write(next_msg)
+						w.flush()
 			except KeyboardInterrupt:
 				self.close_connection()
+				r.close()
+				w.close()
 				self.sock.close()
 				sys.exit(1)
+
 if __name__ == '__main__':
 	argc = len(sys.argv)
 	if argc == 4:

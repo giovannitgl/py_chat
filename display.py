@@ -3,7 +3,17 @@ import io
 import chat_client
 import queue
 import threading
+import os
 msg_queue = queue.Queue()
+
+def pipe_listen(file_r):
+	global msg_queue
+	while(True):
+		msg = file_r.readline()
+		file_r.flush()
+		if msg:
+			print('AQUI',msg)
+			msg_queue.put(msg)
 
 class Chat(Frame):
 	def __init__(self,addr,master=None,verbose=False):
@@ -12,10 +22,22 @@ class Chat(Frame):
 		port = addr[1]
 		self.frame = Frame(self)
 		self.frame.pack()
-		self.client = chat_client.Client(ip,port,verbose)
+		#os pipe: r = [0] w = [0]
+		#gui2s_descriptor: writes what is sent from here to socket
+		#s2gui_descriptor: reads what is written in socket to here
+		r1,w1 = os.pipe()
+		r2,w2 = os.pipe()
+		self.client = chat_client.Client(
+			ip,port,verbose,gui=True,read_file=r1,write_file=w2
+			)
+		self.r = os.fdopen(r2,'r')
+		self.w = os.fdopen(w1,'w')
+		# self.w = os.fdopen(sys.stdout.fileno(),'w')
 		global msg_queue
-		t = threading.Thread(target=self.client.listen,args=(msg_queue,))
-		t.start()
+		input_thread = threading.Thread(target=pipe_listen,args=(self.r,))
+		client_thread = threading.Thread(target=self.client.run)
+		input_thread.start()
+		client_thread.start()
 		# Botões para o usuário
 		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT, fill=Y)
@@ -49,14 +71,16 @@ class Chat(Frame):
 		while not msg_queue.empty():
 			msg = msg_queue.get_nowait()
 			self.updateChat(msg)
-		chat.after(300,chat.check_new_message)
-
+		self.after(300,chat.check_new_message)
 
 	def button_pressed(self):
 		input_get = self.input_field.get()
+		input_get += '\n'
 		self.updateChat('Me -> ' + input_get[1:])
 		dest = int(input_get[0])
-		self.client.send_message(input_get[1:],dest)
+		self.w.write(input_get)
+		self.w.flush()
+		# self.client.send_message(input_get[1:],dest)
 
 	def enter_pressed(self,event):
 		self.button_pressed()
@@ -66,7 +90,7 @@ class Chat(Frame):
 
 	def updateChat(self, message):
 		if message != "":
-			message += "\n"
+			# message += "\n"
 			relative_position_of_scrollbar = self.scroll.get()[1]
 			self.textarea.config(state=NORMAL)
 			self.textarea.insert(END, message)
@@ -90,7 +114,7 @@ if __name__ == '__main__':
 			print('Wrong arg')
 			sys.exit(0)
 	elif argc == 3:
-		client = Chat(addr,root)
+		chat = Chat(addr,root)
 	else:
 		print('Wrong arg format')
 		sys.exit(0)
