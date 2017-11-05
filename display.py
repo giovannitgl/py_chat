@@ -77,7 +77,6 @@ class Chat(Frame):
 		input_get = self.input_field.get()
 		input_get += '\n'
 		self.updateChat('Me -> ' + input_get[1:])
-		dest = int(input_get[0])
 		self.w.write(input_get)
 		self.w.flush()
 		# self.client.send_message(input_get[1:],dest)
