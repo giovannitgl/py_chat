@@ -83,13 +83,17 @@ class Client():
 		#convertion from bytes to unsigned shorts
 		type_int = struct.unpack('!H',msg_type)[0]
 		orig_int = struct.unpack('!H',origin)[0]
+		dest_int = struct.unpack('!H',destination)[0]
 		seq_int = struct.unpack('!H',seq_num)[0]
 		if type_int == 5:
 			n_size = self.sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
 			received_msg = self.sock.recv(n_int)
 			packet += n_size + received_msg
-			msg_str = 'User' + str(orig_int) + ':' + received_msg.decode()
+			msg_str = 'User ' + str(orig_int)
+			if dest_int == 0:
+				msg_str += ' [broadcast] '
+			msg_str += '-> ' + received_msg.decode()
 			ok_frame = self.create_message('',1,self.SERVER_ID)
 			if self.verbose:
 				print('Received',packet,'from socket')

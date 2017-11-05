@@ -14,10 +14,8 @@ class Chat(Frame):
 		self.frame.pack()
 		self.client = chat_client.Client(ip,port,verbose)
 		global msg_queue
-		print('oie')
 		t = threading.Thread(target=self.client.listen,args=(msg_queue,))
 		t.start()
-		print('Thread n rolou')
 		# Botões para o usuário
 		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT, fill=Y)
@@ -25,7 +23,6 @@ class Chat(Frame):
 		broadcast = Button(leftframe, text='Broadcast', height=1,width=5)
 		seachContact.pack()
 		broadcast.pack()
-		print('ahm')
 
 		# Parte aonde armazana a conversa + scroll
 		self.topframe = Frame(self.frame)
@@ -47,20 +44,19 @@ class Chat(Frame):
 		self.input_field.pack(side=LEFT)
 
 		self.pack()
-		print('aqui')
 	def check_new_message(self):
 		global msg_queue
 		while not msg_queue.empty():
 			msg = msg_queue.get_nowait()
-			print('peguei',msg)
-			user = msg[0] + ' -> '
-			self.updateChat(user,msg[1:])
+			self.updateChat(msg)
 		chat.after(300,chat.check_new_message)
 
 
 	def button_pressed(self):
 		input_get = self.input_field.get()
-		self.updateChat("Me -> ", input_get)
+		self.updateChat('Me -> ' + input_get[1:])
+		dest = int(input_get[0])
+		self.client.send_message(input_get[1:],dest)
 
 	def enter_pressed(self,event):
 		self.button_pressed()
@@ -68,10 +64,9 @@ class Chat(Frame):
 	def receiveMessage(self):
 		self.updateChat("Him -> ", "oi")
 
-	def updateChat(self, user, message):
+	def updateChat(self, message):
 		if message != "":
-			message = user + message + "\n"
-
+			message += "\n"
 			relative_position_of_scrollbar = self.scroll.get()[1]
 			self.textarea.config(state=NORMAL)
 			self.textarea.insert(END, message)
