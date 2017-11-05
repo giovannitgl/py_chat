@@ -84,9 +84,6 @@ class Chat(Frame):
 	def enter_pressed(self,event):
 		self.button_pressed()
 
-	def receiveMessage(self):
-		self.updateChat("Him -> ", "oi")
-
 	def updateChat(self, message):
 		if message != "":
 			# message += "\n"
