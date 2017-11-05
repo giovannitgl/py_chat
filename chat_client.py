@@ -14,12 +14,14 @@ class chat_client():
 		self.ID = 0
 		self.verbose=verbose
 		self.seq_num = 0
+		#list waiting for msg confirmations
+		#{'type':int with message type,'seq':sequence number of msg}
 		self.wait_confirmation = []
 		self.sock = self.create_socket()
 		self.get_id()
 		self.run()
 
-	def create_message(self,msg,msgtype,destination):
+	def create_message(self,msg,msgtype,destination,seq=None):
 		'''
 		Header (in bytes):
 		[MSG TYPE] [ORIGIN ID] [DESTINATION ID] [SEQ_NUM]
@@ -42,8 +44,11 @@ class chat_client():
 		frame += struct.pack('!H',msgtype)
 		frame += struct.pack('!H',self.ID)
 		frame += struct.pack('!H',destination)
-		frame += struct.pack('!H',self.seq_num)
-		self.seq_num += 1
+		if not seq:
+			frame += struct.pack('!H',self.seq_num)
+			self.seq_num += 1
+		else:
+			frame += struct.pack('!H',seq)
 		if msgtype == 5:
 			msg_len = len(msg)
 			frame += struct.pack('!H',msg_len)
@@ -87,8 +92,11 @@ class chat_client():
 			received_msg = self.sock.recv(n_int)
 			packet += n_size + received_msg
 			msg_str = 'User' + str(orig_int) + ':' + received_msg.decode()
+			ok_frame = self.create_message('',1,self.SERVER_ID)
 			if self.verbose:
 				print('Received',packet,'from socket')
+				print('Sending', ok_frame, 'to socket')
+			self.sock.send(ok_frame)
 			return msg_str
 		if self.verbose:
 			print('Received',packet,'from socket')
@@ -101,6 +109,8 @@ class chat_client():
 				if type_int == 1:
 					if i['type'] == 5:
 						self.wait_confirmation.remove(i)
+						ok_frame = self.create_message('',1,self.SERVER_ID,seq_int)
+						self.sock.send(ok_frame)
 					if i['type'] == 3:
 						self.ID = struct.unpack('!H',destination)[0]
 						self.wait_confirmation.remove(i)
@@ -163,6 +173,7 @@ class chat_client():
 					elif s == sys.stdin:
 						msg = sys.stdin.readline()
 						if msg:
+							msg = msg[:-1]
 							# print('msg',msg,len(msg),msg[0]=='*')
 							if self.verbose:
 								print('Received \"%s\" from stdin' % msg)
@@ -173,7 +184,7 @@ class chat_client():
 								self.request_list()
 							elif msg[0] == '-' and len(msg) == 2:
 								self.close_connection()
-			except:
+			except KeyboardInterrupt:
 				self.close_connection()
 				self.sock.close()
 				sys.exit(1)

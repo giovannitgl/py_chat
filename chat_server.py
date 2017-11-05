@@ -15,7 +15,11 @@ class chat_server:
 		#socket - id map
 		# {'sock':<socket object>, 'id':int}
 		self.mapping = []
+		#ids avaible for reallocating
 		self.freed_ids = []
+				#list waiting for msg confirmations
+		#{'type':int with message type,'seq':sequence number of msg}]
+		self.wait_confirmation = []
 
 	def allocate_id(self):
 		if not self.freed_ids:
@@ -56,7 +60,6 @@ class chat_server:
 			frame += struct.pack('!H',msg_len)
 			frame += msg.encode()	
 		if msgtype == 7:
-			print(self.mapping)
 			frame += struct.pack('!H',self.user_count)
 			for i in self.mapping:
 				id_int = i['id']
@@ -83,9 +86,14 @@ class chat_server:
 		#appending packet for verbose printing or forwading msg
 		packet = bytes()
 		packet += msg_type + origin + destination + seq_num
+		#treats "OK" messages
+		if msg_int_type == 1:
+			for i in self.wait_confirmation[:]:
+				if seq_int == i['seq']:
+					self.wait_confirmation.remove(i)
+				sock.settimeout(None)
 		#treats "OI" messages
-		if msg_int_type == 3:
-			print('3')
+		elif msg_int_type == 3:
 			new_id = self.allocate_id()
 			for i in self.mapping:
 				if sock is i['sock']:
@@ -100,7 +108,6 @@ class chat_server:
 			return
 		#treats "MSG" messages
 		elif msg_int_type == 5:
-			print('5')
 			n_size = sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
 			received_msg = sock.recv(n_int)
@@ -114,6 +121,7 @@ class chat_server:
 						dest_sock = i['sock']
 				if dest_sock:
 					self.message_queues[dest_sock].put(packet)
+					sock.settimeout(5)
 					if dest_sock not in self.outputs:
 						self.outputs.append(dest_sock)
 					ok_frame = self.create_message('',1,orig_int,seq_int)
@@ -133,34 +141,35 @@ class chat_server:
 					return
 			#Broadcast
 			else:
-				for dest_int in range(1, self.user_count+1):
-					if int(orig_int) != dest_int:
-						for i in self.mapping:
-							print (i['id'])
-							if i['id'] == dest_int:
-								dest_sock = i['sock']
-						# str_frame = self.create_message(str_msg,5,dest_int,seq_int)
+				# for dest_int in range(1, self.user_count+1):
+				# if int(orig_int) != dest_int
+				if self.verbose:
+					print('Received msg',packet,'from id',sock_id)
+				ok_frame = self.create_message('',1,orig_int,seq_int)
+				self.message_queues[sock].put(ok_frame)
+				if sock not in self.outputs:
+					self.outputs.append(sock)
+				print(self.mapping)
+				for i in self.mapping:
+					dest_sock = None
+					if i['id'] != self.SERVER_ID:
+						dest_sock = i['sock']
+						print(i['id'])
+				# str_frame = self.create_message(str_msg,5,dest_int,seq_int)
+					if dest_sock:
 						self.message_queues[dest_sock].put(packet)
 						if dest_sock not in self.outputs:
 							self.outputs.append(dest_sock)
-						ok_frame = self.create_message('',1,orig_int,seq_int)
-						self.message_queues[sock].put(ok_frame)
-						if sock not in self.outputs:
-							self.outputs.append(sock)
-						if self.verbose:
-							print('Received msg',packet,'from id',sock_id)
 				return
 
 		#treats "CREQ" messages
 		elif msg_int_type == 6:
-			print('6')
 			list_frame = self.create_message('',7,orig_int,seq_int)
 			self.message_queues[sock].put(list_frame)
 			if sock not in self.outputs:
 				self.outputs.append(sock)
 		#treats "FLW" messages
 		elif msg_int_type == 4:
-			print('4')
 			self.freed_ids.append(sock_id)
 			for i in self.mapping[:]:
 				if i['id'] == sock_id:
