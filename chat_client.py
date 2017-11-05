@@ -74,7 +74,7 @@ class Client():
 			print('Sending',msg,'to socket')
 		self.sock.send(msg)
 
-	def receive_message(self):
+	def receive_message(self,files=None):
 		#receive bytes from socket
 		msg_type = self.sock.recv(2)
 		if not msg_type: return
@@ -136,16 +136,20 @@ class Client():
 						'!' + str(n_int) + 'H', users
 						)
 					msg_users = str()
+					msg_user += "Online users: "
 					#creates string with users ids
-					for i in users_tuple:
-						msg_users += str(i)
+					for j in users_tuple:
+						msg_users += str(j)
 						msg_users += ' '
+					msg_users += '\n'
 					if self.verbose:
 						print('Received',packet,'from socket')
 					self.wait_confirmation.remove(i)
 					return msg_users
 				elif i['type'] == 4 and type_int == 1:
 					self.wait_confirmation.remove(i)
+					for i in files:
+						i.close()
 					self.sock.close()
 					sys.exit()
 		return
@@ -193,7 +197,7 @@ class Client():
 				readable,writable,exceptional = select.select(inputs,outputs,[])
 				for s in readable:
 					if s == self.sock:
-						msg = self.receive_message()
+						msg = self.receive_message((r,w))
 						if msg : 
 							message_queue.put(msg)
 							if output_stream not in outputs:
@@ -205,15 +209,56 @@ class Client():
 							# print('msg',msg,len(msg),msg[0]=='*')
 							if self.verbose:
 								print('Received \"%s\" from input' % msg)
-							if msg[0].isdigit():
-								dest = int(msg[0])
-								self.send_message(msg[1:],dest)
-							elif msg[0] == '*' and len(msg) == 2:
-								self.request_list()
-							elif msg[0] == '-' and len(msg) == 2:
-								r.close()
-								w.close()
-								self.close_connection()
+							#treats msg commands
+							if msg[0] == '/':
+								#gets the command (separated by whitespace)
+								#checks if it's a message
+								#and checks its destiny
+								if msg.find('/msg') == 0:
+									space_index = msg.index(' ')
+									command = msg[:space_index]
+									if command[4:].isdigit:
+										dest_id = int(command[4:])
+										#checks message body
+										body = msg[(space_index+1):]
+										if body:
+											self.send_message(body,dest_id)
+										#no message body
+										else:
+											#error
+											message_queue.put('ERROR: no message body')
+											if output_stream not in outputs:
+												outputs.append(output_stream)
+									#char in id
+									else:
+										#error	
+										message_queue.put('ERROR: not a valid user id')
+										if output_stream not in outputs:
+											outputs.append(output_stream)
+								#request user list
+								elif msg.find('/list') == 0:
+									self.request_list()
+								#quit
+								elif msg.find('/quit') == 0:
+									# r.close()
+									# w.close()
+									self.close_connection()
+								else:
+									#error
+									message_queue.put('ERROR: not a valid command')
+									if output_stream not in outputs:
+										outputs.append(output_stream)
+							else:
+								self.send_message(msg,0)
+							# if msg[0].isdigit():
+							# 	dest = int(msg[0])
+							# 	self.send_message(msg[1:],dest)
+							# elif msg[0] == '*' and len(msg) == 2:
+							# 	self.request_list()
+							# elif msg[0] == '-' and len(msg) == 2:
+							# 	r.close()
+							# 	w.close()
+							# 	self.close_connection()
 				for s in writable:
 					try:
 						next_msg = message_queue.get_nowait()
