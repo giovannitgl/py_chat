@@ -76,13 +76,14 @@ class Chat(Frame):
 
 	def goButton(self):
 		number = self.user_field.get()
-		_input = self.input_field.get()
-		if _input == "":
-			_input = "/"
-		if _input[0] == '/':
-			lenght = len(_input.split(" ")[0]) + 1
-			_input = _input[lenght:]
-		self.input_user.set("/msg" + number + " " + _input)
+		if number != "":
+			_input = self.input_field.get()
+			if _input == "":
+				_input = "/"
+			if _input[0] == '/':
+				lenght = len(_input.split(" ")[0]) + 1
+				_input = _input[lenght:]
+			self.input_user.set("/msg" + number + " " + _input)
 
 	def broadcastButton(self):
 		input_get = self.input_field.get()
