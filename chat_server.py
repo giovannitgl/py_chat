@@ -3,6 +3,7 @@ import sys
 import select
 import struct
 import queue
+import time
 
 class chat_server:
 	def __init__(self,port,verbose=False):
@@ -17,7 +18,7 @@ class chat_server:
 		self.mapping = []
 		#ids avaible for reallocating
 		self.freed_ids = []
-				#list waiting for msg confirmations
+		#list waiting for msg confirmations
 		#{'type':int with message type,'seq':sequence number of msg}]
 		self.wait_confirmation = []
 
@@ -91,7 +92,7 @@ class chat_server:
 			for i in self.wait_confirmation[:]:
 				if seq_int == i['seq']:
 					self.wait_confirmation.remove(i)
-				sock.settimeout(None)
+				sock.settimeout(0.0)
 		#treats "OI" messages
 		elif msg_int_type == 3:
 			new_id = self.allocate_id()
@@ -108,10 +109,13 @@ class chat_server:
 			return
 		#treats "MSG" messages
 		elif msg_int_type == 5:
+			for i in self.mapping:
+				if i['id'] == orig_int:
+					if i['sock'] is not sock:
+						return
 			n_size = sock.recv(2)
 			n_int = struct.unpack('!H',n_size)[0]
 			received_msg = sock.recv(n_int)
-			# str_msg = received_msg.decode()
 			packet += n_size + received_msg
 			#forwarding of messages
 			if dest_int != 0:
@@ -121,7 +125,8 @@ class chat_server:
 						dest_sock = i['sock']
 				if dest_sock:
 					self.message_queues[dest_sock].put(packet)
-					sock.settimeout(5)
+					# sock.setblocking(1)
+					# sock.settimeout(5)
 					if dest_sock not in self.outputs:
 						self.outputs.append(dest_sock)
 					ok_frame = self.create_message('',1,orig_int,seq_int)
@@ -141,21 +146,16 @@ class chat_server:
 					return
 			#Broadcast
 			else:
-				# for dest_int in range(1, self.user_count+1):
-				# if int(orig_int) != dest_int
 				if self.verbose:
 					print('Received msg',packet,'from id',sock_id)
 				ok_frame = self.create_message('',1,orig_int,seq_int)
 				self.message_queues[sock].put(ok_frame)
 				if sock not in self.outputs:
 					self.outputs.append(sock)
-				print(self.mapping)
 				for i in self.mapping:
 					dest_sock = None
-					if i['id'] != self.SERVER_ID:
+					if i['id'] != self.SERVER_ID and i['id'] != orig_int:
 						dest_sock = i['sock']
-						print(i['id'])
-				# str_frame = self.create_message(str_msg,5,dest_int,seq_int)
 					if dest_sock:
 						self.message_queues[dest_sock].put(packet)
 						if dest_sock not in self.outputs:
@@ -184,9 +184,7 @@ class chat_server:
 		return
 
 	def run(self):
-		# TODO change input output message queue to object variables
-		# TODO change receive msg to be able to send answer msgs
-		S_ADDR = ('150.164.6.21',self.PORT)
+		S_ADDR = ('',self.PORT)
 		MAX_CON = 65534
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)	
 		server.setblocking(0)
@@ -200,42 +198,51 @@ class chat_server:
 		self.message_queues = {}
 
 		self.mapping.append({'sock':server,'id':self.SERVER_ID})
-
-		while self.inputs:
-			readable, writable, exceptional =  select.select(self.inputs,self.outputs,self.inputs)
-			#Handling inputs	
-			for s in readable:
-				if s is server:
-					#Accepts new connections
-					connection, addr = s.accept()
-					connection.setblocking(0)
-					self.inputs.append(connection)
-					self.mapping.append({'sock':connection,'id':0})
-					#creates queue for message
-					self.message_queues[connection] = queue.Queue()
-				else:
-					#Receives data
-					aswr = self.receive_message(s)
-			#Handling outputs
-			for s in writable:		
-				try:
-					next_msg = self.message_queues[s].get_nowait()
-				except queue.Empty:
-					self.outputs.remove(s)
-				else:
-					if self.verbose:
-						for i in self.mapping:
-							if s == i['sock']:
-								sock_id = i['id']
-						print('sending',next_msg,'to id',sock_id)
-					s.send(next_msg)
-						
-			for s in exceptional:
-				self.inputs.remove(s)
-				if s in outputs:
-					self.outputs.remove(s)
-				s.close()
-				del self.message_queues[s]
+		try:
+			while self.inputs:
+				# time.sleep(5)
+				readable, writable, exceptional =  select.select(self.inputs,self.outputs,self.inputs)
+				#Handling inputs	
+				for s in readable:
+					if s is server:
+						#Accepts new connections
+						connection, addr = s.accept()
+						connection.setblocking(0)
+						# connection.settimeout(1)
+						self.inputs.append(connection)
+						self.mapping.append({'sock':connection,'id':0})
+						#creates queue for message
+						self.message_queues[connection] = queue.Queue()
+					else:
+						#Receives data
+						aswr = self.receive_message(s)
+				#Handling outputs
+				for s in writable:	
+					try:
+						next_msg = self.message_queues[s].get_nowait()
+					except queue.Empty:
+						self.outputs.remove(s)
+					else:
+						if self.verbose:
+							for i in self.mapping:
+								if s == i['sock']:
+									sock_id = i['id']
+							print('sending',next_msg,'to id',sock_id)
+						s.send(next_msg)
+							
+				for s in exceptional:
+					self.inputs.remove(s)
+					if s in outputs:
+						self.outputs.remove(s)
+					s.close()
+		
+					del self.message_queues[s]
+		except socket.timeout:
+			self.freed_ids.append(sock_id)
+			self.user_count -= 1
+			for i in self.mapping[:]:
+				if i['id'] == sock_id:
+					self.mapping.remove(i)
 
 if __name__ == '__main__':
 	argc = len(sys.argv)

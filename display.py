@@ -37,6 +37,8 @@ class Chat(Frame):
 		global msg_queue
 		input_thread = threading.Thread(target=pipe_listen,args=(self.r,))
 		client_thread = threading.Thread(target=self.client.run)
+		input_thread.setDaemon(True)
+		client_thread.setDaemon(True)
 		input_thread.start()
 		client_thread.start()
 		# Botões para o usuário
@@ -101,8 +103,7 @@ class Chat(Frame):
 	def button_pressed(self):
 		input_get = self.input_field.get()
 		input_get += '\n'
-		if input_get[0] == '/':
-			self.updateChat('Me -> ' + input_get[1:])
+		self.updateChat('Me -> ' + input_get)
 		self.w.write(input_get)
 		self.w.flush()
 		if input_get[0:5] == "/quit":

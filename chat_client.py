@@ -4,6 +4,7 @@ import struct
 import select
 import queue
 import os
+import time
 
 class Client():
 	def __init__(self,addr,port,verbose=False,gui=False,read_file=None,write_file=None):
@@ -98,7 +99,7 @@ class Client():
 			if dest_int == 0:
 				msg_str += ' [broadcast] '
 			msg_str += '-> ' + received_msg.decode()
-			ok_frame = self.create_message('',1,self.SERVER_ID)
+			ok_frame = self.create_message('',1,self.SERVER_ID,seq_int)
 			if self.verbose:
 				print('Received',packet,'from socket')
 				print('Sending', ok_frame, 'to socket')
@@ -134,14 +135,9 @@ class Client():
 				elif (i['type'] == 6 and type_int == 7):
 					#retrieves size of id list
 					n_size = self.sock.recv(2)
-					print('nsize')
-					print(n_size)
 					n_int = struct.unpack('!H',n_size)[0]
 					#retrieves list
 					users = self.sock.recv(n_int*2)
-					print('users')
-					print(users)
-					print(len(users))
 					packet += n_size + users
 					users_tuple = struct.unpack(
 						'!' + str(n_int) + 'H', users
@@ -193,9 +189,7 @@ class Client():
 			output_stream = self.write_file
 		r = os.fdopen(input_stream,'r')
 		w = os.fdopen(output_stream,'w')
-		# print(r.fileno(),w.fileno())
 		inputs = [self.sock,input_stream]
-		# print(w)
 		outputs = []
 		while inputs:
 			try:
@@ -211,7 +205,6 @@ class Client():
 						msg = r.readline()
 						if msg:
 							msg = msg
-							# print('msg',msg,len(msg),msg[0]=='*')
 							if self.verbose:
 								print('Received \"%s\" from input' % msg)
 							#treats msg commands
@@ -219,25 +212,34 @@ class Client():
 								#gets the command (separated by whitespace)
 								#checks if it's a message
 								#and checks its destiny
-								if msg.find('/msg') == 0:
-									space_index = msg.index(' ')
+								if len(msg) > 411:
+									continue
+								elif msg.find('/msg') == 0:
+									try:
+										space_index = msg.index(' ')
+									except ValueError:
+										print('ERROR: No empty msgs\n')
+										continue
 									command = msg[:space_index]
-									if command[4:].isdigit:
+									if len(command) <= 4:
+										print('ERROR: Empty id')
+										continue
+									elif command[4:].isdigit:
 										dest_id = int(command[4:])
 										#checks message body
 										body = msg[(space_index+1):]
-										if body:
+										if body and body != '\n':
 											self.send_message(body,dest_id)
 										#no message body
 										else:
 											#error
-											message_queue.put('ERROR: no message body')
+											message_queue.put('ERROR: no message body\n')
 											if output_stream not in outputs:
 												outputs.append(output_stream)
 									#char in id
 									else:
 										#error	
-										message_queue.put('ERROR: not a valid user id')
+										message_queue.put('ERROR: not a valid user id\n')
 										if output_stream not in outputs:
 											outputs.append(output_stream)
 								#request user list
@@ -250,20 +252,12 @@ class Client():
 									self.close_connection()
 								else:
 									#error
-									message_queue.put('ERROR: not a valid command')
+									message_queue.put('ERROR: not a valid command\n')
 									if output_stream not in outputs:
 										outputs.append(output_stream)
 							else:
-								self.send_message(msg,0)
-							# if msg[0].isdigit():
-							# 	dest = int(msg[0])
-							# 	self.send_message(msg[1:],dest)
-							# elif msg[0] == '*' and len(msg) == 2:
-							# 	self.request_list()
-							# elif msg[0] == '-' and len(msg) == 2:
-							# 	r.close()
-							# 	w.close()
-							# 	self.close_connection()
+								if len(msg) <= 400:
+									self.send_message(msg,0)
 				for s in writable:
 					try:
 						next_msg = message_queue.get_nowait()
@@ -295,5 +289,4 @@ if __name__ == '__main__':
 		print('Wrong arg format')
 		sys.exit(0)
 		
-	# if len(sys.argv) != 3 or len(sys.argv) != 4:
 	client.run()
