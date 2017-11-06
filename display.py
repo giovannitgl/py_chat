@@ -43,7 +43,7 @@ class Chat(Frame):
 		leftframe = Frame(self.frame)
 		leftframe.pack(side=LEFT, fill=Y)
 		seachContact = Label(leftframe, text='Send\nMessage\nto:')
-		go = Button(leftframe,command=self.goButton, text='Go', height=1,width=1)
+		go = Button(leftframe,command=self.goButton, text='Set', height=1,width=1)
 		self.input_destiny = StringVar()
 		self.user_field = Entry(leftframe, text=self.input_destiny, width=3)
 		self.user_field.bind("<Return>", self.enter_pressedGO)
