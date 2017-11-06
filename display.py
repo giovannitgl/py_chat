@@ -32,6 +32,7 @@ class Chat(Frame):
 			)
 		self.r = os.fdopen(r2,'r')
 		self.w = os.fdopen(w1,'w')
+		root.title('Chat - My IP = ' + str(self.client.ID))
 		# self.w = os.fdopen(sys.stdout.fileno(),'w')
 		global msg_queue
 		input_thread = threading.Thread(target=pipe_listen,args=(self.r,))
@@ -129,7 +130,6 @@ class Chat(Frame):
 
 if __name__ == '__main__':
 	root = Tk()
-	root.title('Chat')
 	argc = len(sys.argv)
 	addr = (sys.argv[1],int(sys.argv[2]))
 	if argc == 4:
