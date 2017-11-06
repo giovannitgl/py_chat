@@ -103,6 +103,8 @@ class Chat(Frame):
 			self.updateChat('Me -> ' + input_get[1:])
 		self.w.write(input_get)
 		self.w.flush()
+		if input_get[0:5] == "/quit":
+			root.destroy()
 		# self.client.send_message(input_get[1:],dest)
 
 	def enter_pressedGO(self,event):
