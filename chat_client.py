@@ -8,7 +8,6 @@ import time
 
 class Client():
 	def __init__(self,addr,port,verbose=False,gui=False,read_file=None,write_file=None):
-		self.user_list = []
 		self.PORT = port
 		self.ADDR = addr
 		self.SERVER_ID = 65535
