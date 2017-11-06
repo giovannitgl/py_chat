@@ -171,6 +171,7 @@ class chat_server:
 		#treats "FLW" messages
 		elif msg_int_type == 4:
 			self.freed_ids.append(sock_id)
+			self.user_count -= 1
 			for i in self.mapping[:]:
 				if i['id'] == sock_id:
 					self.mapping.remove(i)
@@ -185,7 +186,7 @@ class chat_server:
 	def run(self):
 		# TODO change input output message queue to object variables
 		# TODO change receive msg to be able to send answer msgs
-		S_ADDR = ('localhost',self.PORT)
+		S_ADDR = ('150.164.6.21',self.PORT)
 		MAX_CON = 65534
 		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)	
 		server.setblocking(0)

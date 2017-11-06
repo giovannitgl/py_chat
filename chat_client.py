@@ -141,6 +141,7 @@ class Client():
 					users = self.sock.recv(n_int*2)
 					print('users')
 					print(users)
+					print(len(users))
 					packet += n_size + users
 					users_tuple = struct.unpack(
 						'!' + str(n_int) + 'H', users
