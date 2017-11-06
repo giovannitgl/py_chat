@@ -75,7 +75,7 @@ class Client():
 		self.sock.send(msg)
 
 	def receive_message(self,files=None):
-		#receive bytes from socket
+		#receive bytes from so cket
 		msg_type = self.sock.recv(2)
 		if not msg_type: return
 		origin = self.sock.recv(2)
@@ -104,7 +104,7 @@ class Client():
 				print('Sending', ok_frame, 'to socket')
 			self.sock.send(ok_frame)
 			return msg_str
-		if self.verbose:
+		if self.verbose and msg_type != 7:
 			print('Received',packet,'from socket')
 		for i in self.wait_confirmation[:]:
 			#iterates through messages waiting for confirmation
@@ -117,20 +117,30 @@ class Client():
 						self.wait_confirmation.remove(i)
 						ok_frame = self.create_message('',1,self.SERVER_ID,seq_int)
 						self.sock.send(ok_frame)
-					if i['type'] == 3:
+					elif i['type'] == 3:
 						self.ID = struct.unpack('!H',destination)[0]
 						self.wait_confirmation.remove(i)
+					elif i['type'] == 4:
+						self.wait_confirmation.remove(i)
+						for i in files:
+							i.close()
+						self.sock.close()
+						sys.exit()
 				elif type_int == 2:
 					if i['type'] == 5:
 						self.wait_confirmation.remove(i)
-						print('Error')
+						return "ERROR: could not send message\n"
 				#retrives id list
-				elif i['type'] == 6 and type_int == 7:
+				elif (i['type'] == 6 and type_int == 7):
 					#retrieves size of id list
 					n_size = self.sock.recv(2)
+					print('nsize')
+					print(n_size)
 					n_int = struct.unpack('!H',n_size)[0]
 					#retrieves list
 					users = self.sock.recv(n_int*2)
+					print('users')
+					print(users)
 					packet += n_size + users
 					users_tuple = struct.unpack(
 						'!' + str(n_int) + 'H', users
@@ -146,16 +156,12 @@ class Client():
 						print('Received',packet,'from socket')
 					self.wait_confirmation.remove(i)
 					return msg_users
-				elif i['type'] == 4 and type_int == 1:
-					self.wait_confirmation.remove(i)
-					for i in files:
-						i.close()
-					self.sock.close()
-					sys.exit()
 		return
 	def close_connection(self):
 		self.wait_confirmation.append({'type':4,'seq':self.seq_num})
 		msg = self.create_message('',4,self.SERVER_ID)
+		if self.verbose:
+			print('Sending',msg,'to socket')
 		self.sock.send(msg)
 
 	def create_socket(self):
@@ -176,8 +182,7 @@ class Client():
 			msg = self.receive_message()
 			if msg:
 				msg_list.put(msg)
-				print('put on msg_list',msg)
-
+			
 	def run(self):
 		input_stream = sys.stdin.fileno()
 		output_stream = sys.stdout.fileno()
@@ -191,7 +196,6 @@ class Client():
 		inputs = [self.sock,input_stream]
 		# print(w)
 		outputs = []
-		print(r.fileno,w.fileno)
 		while inputs:
 			try:
 				readable,writable,exceptional = select.select(inputs,outputs,[])
