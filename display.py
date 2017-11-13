@@ -22,6 +22,7 @@ class Chat(Frame):
 		port = addr[1]
 		self.frame = Frame(self)
 		self.frame.pack()
+		root.protocol("WM_DELETE_WINDOW",self.on_close)
 		#os pipe: r = [0] w = [0]
 		#gui2s_descriptor: writes what is sent from here to socket
 		#s2gui_descriptor: reads what is written in socket to here
@@ -102,19 +103,25 @@ class Chat(Frame):
 
 	def button_pressed(self):
 		input_get = self.input_field.get()
-		input_get += '\n'
-		self.updateChat('Me -> ' + input_get)
-		self.w.write(input_get)
-		self.w.flush()
-		if input_get[0:5] == "/quit":
-			root.destroy()
-		# self.client.send_message(input_get[1:],dest)
+		if input_get != "":
+			input_get += '\n'
+			self.updateChat('Me -> ' + input_get)
+			self.w.write(input_get)
+			self.w.flush()
+			if input_get[0:5] == "/quit":
+				root.destroy()
+			# self.client.send_message(input_get[1:],dest)
 
 	def enter_pressedGO(self,event):
 		self.goButton()
 
 	def enter_pressed(self,event):
 		self.button_pressed()
+
+	def on_close(self):
+		self.w.write("/quit\n")
+		self.w.flush()
+		root.destroy()
 
 	def updateChat(self, message):
 		if message != "":
